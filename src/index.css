@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* IntervYou Design System - Professional AI Interview Platform */
+
+@layer base {
+  :root {
+    /* Core Brand Colors */
+    --background: 0 0% 100%;
+    --foreground: 215 25% 27%;
+
+    /* Professional Blue Palette */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 70%;
+    --primary-dark: 217 91% 45%;
+
+    /* Trust & Reliability */
+    --secondary: 215 20% 65%;
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Neutral Professional */
+    --muted: 215 15% 96%;
+    --muted-foreground: 215 10% 40%;
+    
+    /* Success & Achievement */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --success-glow: 142 76% 46%;
+    
+    /* Warning & Attention */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Surface Colors */
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 27%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 27%;
+    
+    /* Interactive */
+    --accent: 217 91% 95%;
+    --accent-foreground: 217 91% 60%;
+    --border: 215 15% 92%;
+    --input: 215 15% 92%;
+    --ring: 217 91% 60%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 20% 65%), hsl(215 20% 75%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(260 100% 80%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
+
+    /* Shadows */
+    --shadow-primary: 0 10px 30px -10px hsl(217 91% 60% / 0.3);
+    --shadow-secondary: 0 4px 20px -4px hsl(215 20% 65% / 0.2);
+    --shadow-elevation: 0 2px 10px -2px hsl(215 15% 40% / 0.15);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark Mode for Professional AI Platform */
+    --background: 215 28% 8%;
+    --foreground: 215 15% 95%;
+
+    /* Dark Professional Colors */
+    --primary: 217 91% 65%;
+    --primary-foreground: 215 28% 8%;
+    --primary-glow: 217 91% 75%;
+    --primary-dark: 217 91% 50%;
+
+    --secondary: 215 20% 25%;
+    --secondary-foreground: 215 15% 95%;
+    
+    --muted: 215 25% 12%;
+    --muted-foreground: 215 15% 65%;
+    
+    --success: 142 76% 45%;
+    --success-foreground: 215 28% 8%;
+    --success-glow: 142 76% 55%;
+    
+    --warning: 38 92% 60%;
+    --warning-foreground: 215 28% 8%;
+    
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 215 28% 8%;
+
+    --card: 215 25% 10%;
+    --card-foreground: 215 15% 95%;
+    --popover: 215 25% 10%;
+    --popover-foreground: 215 15% 95%;
+    
+    --accent: 217 91% 15%;
+    --accent-foreground: 217 91% 65%;
+    --border: 215 25% 15%;
+    --input: 215 25% 15%;
+    --ring: 217 91% 65%;
+
+    /* Dark Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 65%), hsl(217 91% 75%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 20% 25%), hsl(215 20% 35%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(260 100% 85%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
+
+    /* Dark Shadows */
+    --shadow-primary: 0 10px 30px -10px hsl(217 91% 65% / 0.4);
+    --shadow-secondary: 0 4px 20px -4px hsl(215 20% 25% / 0.3);
+    --shadow-elevation: 0 2px 10px -2px hsl(215 15% 5% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
