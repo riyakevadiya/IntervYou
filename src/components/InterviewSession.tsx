@@ -47,7 +47,7 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState('');
-  const [isAnswering, setIsAnswering] => useState(false);
+  const [isAnswering, setIsAnswering] = useState(false);
   const [answers, setAnswers] = useState<Array<{
     question: string;
     answer: string;

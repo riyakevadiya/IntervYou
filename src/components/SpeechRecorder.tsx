@@ -15,6 +15,7 @@ interface SpeechRecorderProps {
 const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChange }: SpeechRecorderProps) => {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,6 +34,7 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.maxAlternatives = 1;
 
       recognitionRef.current.onresult = (event) => {
         let finalTranscript = '';
@@ -41,22 +43,43 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript;
+            finalTranscript += transcript + ' ';
           } else {
-            interimTranscript += transcript;
+            interimTranscript = transcript;
           }
         }
 
-        setTranscript(finalTranscript + interimTranscript);
+        setTranscript(prev => finalTranscript + interimTranscript);
       };
 
       recognitionRef.current.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        setIsListening(false);
+        // Don't stop listening on errors, just log them
+        if (event.error === 'no-speech') {
+          // Restart recognition if no speech detected
+          setTimeout(() => {
+            if (isListening && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {
+                console.log('Recognition already started');
+              }
+            }
+          }, 100);
+        }
       };
 
       recognitionRef.current.onend = () => {
-        setIsListening(false);
+        // Auto-restart recognition if we're still supposed to be listening and not paused
+        if (isListening && !isPaused && recognitionRef.current) {
+          setTimeout(() => {
+            try {
+              recognitionRef.current?.start();
+            } catch (e) {
+              console.log('Recognition already started');
+            }
+          }, 100);
+        }
       };
     }
 
@@ -68,13 +91,15 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
         clearInterval(recordingTimerRef.current);
       }
     };
-  }, []);
+  }, [isListening]);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -82,19 +107,30 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
 
-      mediaRecorderRef.current.start();
+      // Start media recording
+      mediaRecorderRef.current.start(1000); // Collect data every second
       onRecordingChange(true);
       setIsListening(true);
 
-      // Start speech recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.start();
-      }
+      // Start speech recognition with retry logic
+      const startRecognition = () => {
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+            console.log('Speech recognition started');
+          } catch (e) {
+            console.log('Recognition already started, retrying...');
+            setTimeout(startRecognition, 100);
+          }
+        }
+      };
+
+      startRecognition();
 
       // Start recording timer
       setRecordingTime(0);
@@ -108,11 +144,30 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
     }
   };
 
+  const pauseRecording = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (recognitionRef.current && isListening && isPaused) {
+      try {
+        recognitionRef.current.start();
+        setIsPaused(false);
+      } catch (e) {
+        console.log('Recognition already started');
+      }
+    }
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isListening) {
       mediaRecorderRef.current.stop();
       onRecordingChange(false);
       setIsListening(false);
+      setIsPaused(false);
     }
 
     if (recognitionRef.current) {
@@ -189,20 +244,45 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
             size="lg"
             onClick={isListening ? stopRecording : startRecording}
             disabled={!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)}
-            className="w-20 h-20 rounded-full"
+            className={`w-20 h-20 rounded-full ${isListening ? 'animate-pulse' : ''}`}
           >
             {isListening ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
           </Button>
+          
+          {isListening && (
+            <Button
+              variant={isPaused ? "default" : "outline"}
+              size="sm"
+              onClick={isPaused ? resumeRecording : pauseRecording}
+              className="w-16 h-16 rounded-full"
+            >
+              {isPaused ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+            </Button>
+          )}
         </div>
+        
+        {/* Continuous Recording Info */}
+        {isListening && (
+          <div className="text-center p-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-700">
+              💡 <strong>Continuous Mode:</strong> Speak naturally - the system will keep recording until you stop
+            </p>
+          </div>
+        )}
 
         {/* Recording Status */}
         {isListening && (
           <div className="text-center space-y-2">
             <div className="flex items-center justify-center gap-2">
-              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-destructive">Recording...</span>
+              <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-destructive animate-pulse'}`} />
+              <span className={`text-sm font-medium ${isPaused ? 'text-yellow-600' : 'text-destructive'}`}>
+                {isPaused ? 'Paused' : 'Recording...'}
+              </span>
             </div>
             <Badge variant="outline">{formatTime(recordingTime)}</Badge>
+            {isPaused && (
+              <p className="text-xs text-yellow-600">Click the small mic button to resume</p>
+            )}
           </div>
         )}
 
