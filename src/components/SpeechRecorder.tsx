@@ -36,7 +36,12 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       recognitionRef.current.lang = 'en-US';
       recognitionRef.current.maxAlternatives = 1;
 
+      recognitionRef.current.onstart = () => {
+        console.log('Speech recognition started successfully');
+      };
+
       recognitionRef.current.onresult = (event) => {
+        console.log('Speech recognition result:', event.results);
         let finalTranscript = '';
         let interimTranscript = '';
 
@@ -49,6 +54,9 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
           }
         }
 
+        console.log('Final transcript:', finalTranscript);
+        console.log('Interim transcript:', interimTranscript);
+        
         setTranscript(prev => finalTranscript + interimTranscript);
       };
 
@@ -70,6 +78,7 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       };
 
       recognitionRef.current.onend = () => {
+        console.log('Speech recognition ended');
         // Auto-restart recognition if we're still supposed to be listening and not paused
         if (isListening && !isPaused && recognitionRef.current) {
           setTimeout(() => {
@@ -81,6 +90,8 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
           }, 100);
         }
       };
+    } else {
+      console.error('Speech recognition not supported in this browser');
     }
 
     return () => {
@@ -91,12 +102,24 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
         clearInterval(recordingTimerRef.current);
       }
     };
-  }, [isListening]);
+  }, []);
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Starting recording...');
       
+      // First, get microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      
+      console.log('Microphone access granted');
+      
+      // Initialize media recorder
       mediaRecorderRef.current = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -127,10 +150,13 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
             console.log('Recognition already started, retrying...');
             setTimeout(startRecognition, 100);
           }
+        } else {
+          console.error('Speech recognition not initialized');
         }
       };
 
-      startRecognition();
+      // Wait a bit for media recorder to start, then start speech recognition
+      setTimeout(startRecognition, 500);
 
       // Start recording timer
       setRecordingTime(0);
@@ -140,7 +166,11 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
 
     } catch (error) {
       console.error('Error starting recording:', error);
-      alert('Unable to access microphone. Please check permissions.');
+      if (error.name === 'NotAllowedError') {
+        alert('Microphone permission denied. Please allow microphone access and try again.');
+      } else {
+        alert('Unable to access microphone. Please check permissions and try again.');
+      }
     }
   };
 
@@ -332,6 +362,38 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
             <CheckCircle className="h-4 w-4 mr-2" />
             Submit Answer
           </Button>
+        </div>
+        
+        {/* Test Speech Recognition */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+                console.log('Manual test: Speech recognition started');
+              } catch (e) {
+                console.log('Manual test: Recognition already started');
+              }
+            }
+          }}
+          className="w-full"
+        >
+          🧪 Test Speech Recognition
+        </Button>
+
+        {/* Debug Info */}
+        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-xs text-gray-600 mb-2">
+            <strong>Debug Info:</strong>
+          </p>
+          <div className="text-xs text-gray-600 space-y-1">
+            <div>Speech Recognition: {('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) ? '✅ Supported' : '❌ Not Supported'}</div>
+            <div>Microphone: {isListening ? '✅ Active' : '❌ Inactive'}</div>
+            <div>Status: {isListening ? (isPaused ? '⏸️ Paused' : '🔴 Recording') : '⏹️ Stopped'}</div>
+            <div>Transcript Length: {transcript.length} characters</div>
+          </div>
         </div>
 
         {/* Browser Support Warning */}
