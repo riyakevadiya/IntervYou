@@ -16,6 +16,18 @@ interface InterviewResultsProps {
       answer: string;
       score: number;
       feedback: string;
+      analysis?: {
+        communication: string;
+        structure: string;
+        content: string;
+        suggestions: string[];
+        metrics: {
+          wordCount: number;
+          speakingTime: number;
+          fillerWords: number;
+          confidence: number;
+        };
+      };
     }>;
     duration: number;
     strengths: string[];
@@ -167,6 +179,59 @@ const InterviewResults = ({ results, onRetakeInterview, onGoHome }: InterviewRes
                     <div className="text-sm bg-muted p-2 rounded">
                       <strong>Feedback:</strong> {item.feedback}
                     </div>
+                    
+                    {/* Detailed Analysis */}
+                    {item.analysis && (
+                      <div className="space-y-3">
+                        {/* Metrics */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-center p-2 bg-background rounded">
+                            <div className="font-semibold">{item.analysis.metrics.wordCount}</div>
+                            <div className="text-muted-foreground">Words</div>
+                          </div>
+                          <div className="text-center p-2 bg-background rounded">
+                            <div className="font-semibold">{item.analysis.metrics.speakingTime}s</div>
+                            <div className="text-muted-foreground">Speaking Time</div>
+                          </div>
+                          <div className="text-center p-2 bg-background rounded">
+                            <div className="font-semibold">{item.analysis.metrics.fillerWords}</div>
+                            <div className="text-muted-foreground">Filler Words</div>
+                          </div>
+                          <div className="text-center p-2 bg-background rounded">
+                            <div className="font-semibold">{item.analysis.metrics.confidence}%</div>
+                            <div className="text-muted-foreground">Relevance</div>
+                          </div>
+                        </div>
+                        
+                        {/* Feedback Categories */}
+                        <div className="space-y-2">
+                          <div className="p-2 bg-green-50 border border-green-200 rounded text-xs">
+                            <span className="font-medium text-green-800">Communication:</span> {item.analysis.feedback.communication}
+                          </div>
+                          <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                            <span className="font-medium text-blue-800">Structure:</span> {item.analysis.feedback.structure}
+                          </div>
+                          <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">
+                            <span className="font-medium text-purple-800">Content:</span> {item.analysis.feedback.content}
+                          </div>
+                        </div>
+                        
+                        {/* Suggestions */}
+                        {item.analysis.feedback.suggestions.length > 0 && (
+                          <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                            <span className="font-medium text-yellow-800">Suggestions:</span>
+                            <ul className="mt-1 space-y-1">
+                              {item.analysis.feedback.suggestions.map((suggestion, idx) => (
+                                <li key={idx} className="flex items-start gap-2">
+                                  <span className="text-yellow-600">•</span>
+                                  {suggestion}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

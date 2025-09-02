@@ -7,6 +7,8 @@ import {
   Mic, MicOff, Video, VideoOff, Phone, Clock, Brain, 
   MessageSquare, RotateCcw, CheckCircle, AlertCircle 
 } from 'lucide-react';
+import SpeechRecorder from './SpeechRecorder';
+import AnswerAnalyzer from './AnswerAnalyzer';
 
 interface InterviewSessionProps {
   config: any;
@@ -20,6 +22,18 @@ interface InterviewResults {
     answer: string;
     score: number;
     feedback: string;
+    analysis?: {
+      communication: string;
+      structure: string;
+      content: string;
+      suggestions: string[];
+      metrics: {
+        wordCount: number;
+        speakingTime: number;
+        fillerWords: number;
+        confidence: number;
+      };
+    };
   }>;
   duration: number;
   strengths: string[];
@@ -33,7 +47,13 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState('');
-  const [isAnswering, setIsAnswering] = useState(false);
+  const [isAnswering, setIsAnswering] => useState(false);
+  const [answers, setAnswers] = useState<Array<{
+    question: string;
+    answer: string;
+    analysis?: any;
+  }>>([]);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   // If AI-provided questions exist, use them; otherwise fallback to defaults
   const fallbackQuestions = [
@@ -95,43 +115,85 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleAnswerSubmit = (answer: string) => {
+    const newAnswer = {
+      question: questions[currentQuestion].question,
+      answer: answer
+    };
+    
+    setAnswers(prev => [...prev, newAnswer]);
+    setCurrentAnswer(answer);
+    setShowAnalysis(true);
+  };
+
+  const handleAnalysisComplete = (analysis: any) => {
+    setAnswers(prev => prev.map((ans, idx) => 
+      idx === prev.length - 1 ? { ...ans, analysis } : ans
+    ));
+  };
+
   const handleNextQuestion = () => {
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(prev => prev + 1);
       setCurrentAnswer('');
       setIsAnswering(false);
+      setShowAnalysis(false);
     } else {
       // End interview
-      const mockResults: InterviewResults = {
-        score: 85,
-        feedback: questions.map(q => ({
-          question: q.question,
-          answer: "Mock answer provided by user",
-          score: Math.floor(Math.random() * 30) + 70,
-          feedback: "Good structure and clear communication. Consider providing more specific examples."
-        })),
+      const totalScore = answers.reduce((sum, ans) => sum + (ans.analysis?.score || 70), 0) / answers.length;
+      
+      const results: InterviewResults = {
+        score: Math.round(totalScore),
+        feedback: questions.map((q, idx) => {
+          const answer = answers[idx] || { answer: "No answer provided", analysis: null };
+          return {
+            question: q.question,
+            answer: answer.answer,
+            score: answer.analysis?.score || 70,
+            feedback: answer.analysis ? 
+              `${answer.analysis.feedback.communication} ${answer.analysis.feedback.structure} ${answer.analysis.feedback.content}` :
+              "Good structure and clear communication. Consider providing more specific examples.",
+            analysis: answer.analysis
+          };
+        }),
         duration: timeElapsed,
-        strengths: ["Clear communication", "Good examples", "Professional demeanor"],
-        improvements: ["More specific metrics", "Deeper technical details", "Ask follow-up questions"]
+        strengths: answers.filter(ans => ans.analysis?.score >= 80).length > 0 ? 
+          ["Strong communication", "Good structure", "Relevant content"] : 
+          ["Professional demeanor", "Good engagement"],
+        improvements: answers.filter(ans => ans.analysis?.score < 70).length > 0 ?
+          ["Improve answer structure", "Reduce filler words", "Provide more specific examples"] :
+          ["Complete the full interview", "Provide more detailed responses"]
       };
-      onEndInterview(mockResults);
+      onEndInterview(results);
     }
   };
 
   const handleEndInterview = () => {
-    const mockResults: InterviewResults = {
-      score: 78,
-      feedback: questions.slice(0, currentQuestion + 1).map(q => ({
-        question: q.question,
-        answer: "Mock answer provided by user",
-        score: Math.floor(Math.random() * 30) + 60,
-        feedback: "Interview ended early. Consider completing all questions for comprehensive feedback."
-      })),
+    const totalScore = answers.reduce((sum, ans) => sum + (ans.analysis?.score || 70), 0) / Math.max(answers.length, 1);
+    
+    const results: InterviewResults = {
+      score: Math.round(totalScore),
+      feedback: questions.slice(0, currentQuestion + 1).map((q, idx) => {
+        const answer = answers[idx] || { answer: "No answer provided", analysis: null };
+        return {
+          question: q.question,
+          answer: answer.answer,
+          score: answer.analysis?.score || 70,
+          feedback: answer.analysis ? 
+            `${answer.analysis.feedback.communication} ${answer.analysis.feedback.structure} ${answer.analysis.feedback.content}` :
+            "Interview ended early. Consider completing all questions for comprehensive feedback.",
+          analysis: answer.analysis
+        };
+      }),
       duration: timeElapsed,
-      strengths: ["Professional start", "Good engagement"],
-      improvements: ["Complete the full interview", "Provide more detailed responses"]
+      strengths: answers.filter(ans => ans.analysis?.score >= 80).length > 0 ? 
+        ["Strong communication", "Good structure", "Relevant content"] : 
+        ["Professional start", "Good engagement"],
+      improvements: answers.filter(ans => ans.analysis?.score < 70).length > 0 ?
+        ["Improve answer structure", "Reduce filler words", "Provide more specific examples"] :
+        ["Complete the full interview", "Provide more detailed responses"]
     };
-    onEndInterview(mockResults);
+    onEndInterview(results);
   };
 
   return (
@@ -202,46 +264,22 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
               </CardContent>
             </Card>
 
-            {/* Your Video */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Your Response</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-video bg-muted rounded-lg flex items-center justify-center mb-4">
-                  <div className="text-center">
-                    {isVideoOn ? (
-                      <div className="text-muted-foreground">
-                        <Video className="h-12 w-12 mx-auto mb-2" />
-                        <p>Your video feed</p>
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground">
-                        <VideoOff className="h-12 w-12 mx-auto mb-2" />
-                        <p>Video disabled</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {isRecording && (
-                      <>
-                        <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-                        <span className="text-sm">Recording your response...</span>
-                      </>
-                    )}
-                  </div>
-                  <Button 
-                    variant={isRecording ? "destructive" : "default"}
-                    onClick={() => setIsRecording(!isRecording)}
-                  >
-                    {isRecording ? "Stop Recording" : "Start Recording"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Speech Recorder */}
+            <SpeechRecorder
+              question={questions[currentQuestion]?.question || ''}
+              onAnswerSubmit={handleAnswerSubmit}
+              isRecording={isRecording}
+              onRecordingChange={setIsRecording}
+            />
+
+            {/* Answer Analysis */}
+            {showAnalysis && currentAnswer && (
+              <AnswerAnalyzer
+                question={questions[currentQuestion]?.question || ''}
+                answer={currentAnswer}
+                onAnalysisComplete={handleAnalysisComplete}
+              />
+            )}
           </div>
 
           {/* Question & Info Panel */}
@@ -266,15 +304,23 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
                   </div>
 
                   <div className="space-y-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full gap-2"
-                      onClick={() => setIsAnswering(!isAnswering)}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      {isAnswering ? "I'm Done" : "Start Answer"}
-                    </Button>
+                    {currentAnswer ? (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-800">Answer Submitted</span>
+                        </div>
+                        <p className="text-sm text-green-700">Your answer has been recorded and analyzed.</p>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Mic className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-800">Ready to Answer</span>
+                        </div>
+                        <p className="text-sm text-blue-700">Use the voice recorder below to answer this question.</p>
+                      </div>
+                    )}
                     
                     {currentQuestion < questions.length - 1 ? (
                       <Button 
@@ -282,6 +328,7 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
                         size="sm" 
                         className="w-full"
                         onClick={handleNextQuestion}
+                        disabled={!currentAnswer}
                       >
                         Next Question
                       </Button>
@@ -291,6 +338,7 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
                         size="sm" 
                         className="w-full gap-2"
                         onClick={handleNextQuestion}
+                        disabled={!currentAnswer}
                       >
                         <CheckCircle className="h-4 w-4" />
                         Complete Interview
