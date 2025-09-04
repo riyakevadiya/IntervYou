@@ -1,12 +1,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Trophy, TrendingUp, Clock, Star, CheckCircle, AlertCircle, 
-  RotateCcw, Download, Share2, Home, BarChart3 
+  Trophy, Star, Home, Download, Share2 
 } from 'lucide-react';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
 interface InterviewResultsProps {
   results: {
@@ -44,12 +43,6 @@ const InterviewResults = ({ results, onRetakeInterview, onGoHome }: InterviewRes
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 85) return 'text-success';
-    if (score >= 70) return 'text-warning';
-    return 'text-destructive';
-  };
-
   const getScoreBadge = (score: number) => {
     if (score >= 90) return { label: 'Excellent', variant: 'default' as const };
     if (score >= 80) return { label: 'Good', variant: 'secondary' as const };
@@ -59,7 +52,7 @@ const InterviewResults = ({ results, onRetakeInterview, onGoHome }: InterviewRes
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="flex justify-center">
@@ -68,176 +61,52 @@ const InterviewResults = ({ results, onRetakeInterview, onGoHome }: InterviewRes
             </div>
           </div>
           <h1 className="text-3xl font-bold">Interview Complete!</h1>
-          <p className="text-muted-foreground">Here's your detailed performance analysis</p>
+          <p className="text-muted-foreground">Your professional performance analysis</p>
         </div>
 
-        {/* Overall Score */}
+        {/* Overall Summary */}
         <Card className="text-center">
           <CardHeader>
             <CardTitle className="flex items-center justify-center gap-2">
               <Star className="h-5 w-5" />
               Overall Performance
             </CardTitle>
+            <CardDescription>Summary of your latest interview</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <div className={`text-6xl font-bold ${getScoreColor(results.score)}`}>
-                {results.score}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-2xl mx-auto">
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Score</div>
+                <div className="text-3xl font-bold">{results.score}</div>
+                <Badge variant={getScoreBadge(results.score).variant}>{getScoreBadge(results.score).label}</Badge>
               </div>
-              <div className="text-2xl text-muted-foreground">out of 100</div>
-              <Badge variant={getScoreBadge(results.score).variant} className="text-base px-4 py-1">
-                {getScoreBadge(results.score).label}
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-8 max-w-md mx-auto">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-1">
-                  <Clock className="h-4 w-4" />
-                  Duration
-                </div>
-                <div className="text-xl font-semibold">{formatTime(results.duration)}</div>
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Duration</div>
+                <div className="text-3xl font-bold">{formatTime(results.duration)}</div>
               </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-1">
-                  <BarChart3 className="h-4 w-4" />
-                  Questions
-                </div>
-                <div className="text-xl font-semibold">{results.feedback.length}</div>
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Questions</div>
+                <div className="text-3xl font-bold">{results.feedback.length}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Status</div>
+                <div className="text-3xl font-bold">{results.score >= 85 ? 'On Track' : 'Improve'}</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Strengths & Improvements */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-success">
-                  <CheckCircle className="h-5 w-5" />
-                  Strengths
-                </CardTitle>
-                <CardDescription>What you did well</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  {results.strengths.map((strength, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-success rounded-full mt-2 flex-shrink-0" />
-                      <span className="text-sm">{strength}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-warning">
-                  <AlertCircle className="h-5 w-5" />
-                  Areas for Improvement
-                </CardTitle>
-                <CardDescription>Focus on these for next time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  {results.improvements.map((improvement, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <div className="w-2 h-2 bg-warning rounded-full mt-2 flex-shrink-0" />
-                      <span className="text-sm">{improvement}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Detailed Feedback */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Question-by-Question Analysis</CardTitle>
-              <CardDescription>Detailed feedback for each response</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 max-h-96 overflow-y-auto">
-              {results.feedback.map((item, index) => (
-                <div key={index} className="border border-border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Question {index + 1}</span>
-                    <div className="flex items-center gap-2">
-                      <Progress value={item.score} className="w-16" />
-                      <span className={`text-sm font-semibold ${getScoreColor(item.score)}`}>
-                        {item.score}%
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-muted-foreground">
-                      {item.question}
-                    </div>
-                    <div className="text-sm bg-muted p-2 rounded">
-                      <strong>Feedback:</strong> {item.feedback}
-                    </div>
-                    
-                    {/* Detailed Analysis */}
-                    {item.analysis && (
-                      <div className="space-y-3">
-                        {/* Metrics */}
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="text-center p-2 bg-background rounded">
-                            <div className="font-semibold">{item.analysis.metrics.wordCount}</div>
-                            <div className="text-muted-foreground">Words</div>
-                          </div>
-                          <div className="text-center p-2 bg-background rounded">
-                            <div className="font-semibold">{item.analysis.metrics.speakingTime}s</div>
-                            <div className="text-muted-foreground">Speaking Time</div>
-                          </div>
-                          <div className="text-center p-2 bg-background rounded">
-                            <div className="font-semibold">{item.analysis.metrics.fillerWords}</div>
-                            <div className="text-muted-foreground">Filler Words</div>
-                          </div>
-                          <div className="text-center p-2 bg-background rounded">
-                            <div className="font-semibold">{item.analysis.metrics.confidence}%</div>
-                            <div className="text-muted-foreground">Relevance</div>
-                          </div>
-                        </div>
-                        
-                        {/* Feedback Categories */}
-                        <div className="space-y-2">
-                          <div className="p-2 bg-green-50 border border-green-200 rounded text-xs">
-                            <span className="font-medium text-green-800">Communication:</span> {item.analysis.feedback.communication}
-                          </div>
-                          <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                            <span className="font-medium text-blue-800">Structure:</span> {item.analysis.feedback.structure}
-                          </div>
-                          <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs">
-                            <span className="font-medium text-purple-800">Content:</span> {item.analysis.feedback.content}
-                          </div>
-                        </div>
-                        
-                        {/* Suggestions */}
-                        {item.analysis.feedback.suggestions.length > 0 && (
-                          <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                            <span className="font-medium text-yellow-800">Suggestions:</span>
-                            <ul className="mt-1 space-y-1">
-                              {item.analysis.feedback.suggestions.map((suggestion, idx) => (
-                                <li key={idx} className="flex items-start gap-2">
-                                  <span className="text-yellow-600">•</span>
-                                  {suggestion}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+        {/* Professional Analytics Dashboard */}
+        <AnalyticsDashboard 
+          overallScore={results.score}
+          feedback={results.feedback.map(f => ({
+            question: f.question,
+            score: f.score,
+            analysis: f.analysis,
+          }))}
+          strengths={results.strengths}
+          improvements={results.improvements}
+        />
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -245,63 +114,19 @@ const InterviewResults = ({ results, onRetakeInterview, onGoHome }: InterviewRes
             <Home className="h-4 w-4" />
             Back to Home
           </Button>
-          <Button variant="secondary" className="gap-2">
+          <Button variant="secondary" className="gap-2" onClick={onRetakeInterview}>
+            <Star className="h-4 w-4" />
+            Retake Interview
+          </Button>
+          <Button variant="ghost" className="gap-2">
             <Download className="h-4 w-4" />
             Download Report
           </Button>
           <Button variant="ghost" className="gap-2">
             <Share2 className="h-4 w-4" />
-            Share Results
-          </Button>
-          <Button variant="hero" onClick={onRetakeInterview} className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Practice Again
+            Share
           </Button>
         </div>
-
-        {/* Improvement Suggestions */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Next Steps
-            </CardTitle>
-            <CardDescription>Recommended actions to improve your interview skills</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 border border-border rounded-lg">
-                <h4 className="font-semibold mb-2">Practice More</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Take another mock interview to reinforce your improvements
-                </p>
-                <Button variant="outline" size="sm" onClick={onRetakeInterview}>
-                  Start New Interview
-                </Button>
-              </div>
-              
-              <div className="p-4 border border-border rounded-lg">
-                <h4 className="font-semibold mb-2">Study Resources</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Access curated materials based on your interview type
-                </p>
-                <Button variant="outline" size="sm">
-                  View Resources
-                </Button>
-              </div>
-              
-              <div className="p-4 border border-border rounded-lg">
-                <h4 className="font-semibold mb-2">Track Progress</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  View your improvement over time with detailed analytics
-                </p>
-                <Button variant="outline" size="sm">
-                  View Analytics
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

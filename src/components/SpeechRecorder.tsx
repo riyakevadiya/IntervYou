@@ -25,73 +25,61 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const accumulatedFinalRef = useRef<string>('');
 
   useEffect(() => {
     // Initialize speech recognition
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
+      const SR: typeof window.SpeechRecognition = (window.SpeechRecognition || window.webkitSpeechRecognition) as any;
+      recognitionRef.current = new SR();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
-      recognitionRef.current.maxAlternatives = 1;
+      (recognitionRef.current as any).maxAlternatives = 1;
 
       recognitionRef.current.onstart = () => {
-        console.log('Speech recognition started successfully');
+        // started
       };
 
       recognitionRef.current.onresult = (event) => {
-        console.log('Speech recognition result:', event.results);
-        let finalTranscript = '';
-        let interimTranscript = '';
+        let finalBatch = '';
+        let interim = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
+          const piece = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' ';
+            finalBatch += piece + ' ';
           } else {
-            interimTranscript = transcript;
+            interim = piece;
           }
         }
 
-        console.log('Final transcript:', finalTranscript);
-        console.log('Interim transcript:', interimTranscript);
-        
-        setTranscript(prev => finalTranscript + interimTranscript);
+        if (finalBatch) {
+          accumulatedFinalRef.current = (accumulatedFinalRef.current + ' ' + finalBatch).trim();
+        }
+        const full = (accumulatedFinalRef.current + (interim ? ' ' + interim : '')).trim();
+        setTranscript(full);
       };
 
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        // Don't stop listening on errors, just log them
-        if (event.error === 'no-speech') {
-          // Restart recognition if no speech detected
+      recognitionRef.current.onerror = (event: any) => {
+        if (event.error === 'no-speech' || event.error === 'audio-capture') {
+          // try to restart softly
           setTimeout(() => {
-            if (isListening && recognitionRef.current) {
-              try {
-                recognitionRef.current.start();
-              } catch (e) {
-                console.log('Recognition already started');
-              }
+            if (isListening && recognitionRef.current && !isPaused) {
+              try { recognitionRef.current.start(); } catch {}
             }
-          }, 100);
+          }, 150);
         }
       };
 
       recognitionRef.current.onend = () => {
-        console.log('Speech recognition ended');
-        // Auto-restart recognition if we're still supposed to be listening and not paused
+        // Auto-restart recognition if still listening and not paused
         if (isListening && !isPaused && recognitionRef.current) {
           setTimeout(() => {
-            try {
-              recognitionRef.current?.start();
-            } catch (e) {
-              console.log('Recognition already started');
-            }
-          }, 100);
+            try { recognitionRef.current!.start(); } catch {}
+          }, 150);
         }
       };
-    } else {
-      console.error('Speech recognition not supported in this browser');
     }
 
     return () => {
@@ -102,27 +90,15 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
         clearInterval(recordingTimerRef.current);
       }
     };
-  }, []);
+  }, [isListening, isPaused]);
 
   const startRecording = async () => {
     try {
-      console.log('Starting recording...');
-      
-      // First, get microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
-      
-      console.log('Microphone access granted');
-      
-      // Initialize media recorder
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -130,43 +106,30 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(audioBlob);
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
         stream.getTracks().forEach(track => track.stop());
       };
 
-      // Start media recording
-      mediaRecorderRef.current.start(1000); // Collect data every second
+      mediaRecorderRef.current.start(1000);
       onRecordingChange(true);
       setIsListening(true);
+      setIsPaused(false);
+      accumulatedFinalRef.current = '';
+      setTranscript('');
 
-      // Start speech recognition with retry logic
-      const startRecognition = () => {
+      // Start recognition slightly after media begins
+      setTimeout(() => {
         if (recognitionRef.current) {
-          try {
-            recognitionRef.current.start();
-            console.log('Speech recognition started');
-          } catch (e) {
-            console.log('Recognition already started, retrying...');
-            setTimeout(startRecognition, 100);
-          }
-        } else {
-          console.error('Speech recognition not initialized');
+          try { recognitionRef.current.start(); } catch {}
         }
-      };
+      }, 200);
 
-      // Wait a bit for media recorder to start, then start speech recognition
-      setTimeout(startRecognition, 500);
-
-      // Start recording timer
       setRecordingTime(0);
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
+      recordingTimerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
 
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      if (error.name === 'NotAllowedError') {
+    } catch (error: any) {
+      if (error?.name === 'NotAllowedError') {
         alert('Microphone permission denied. Please allow microphone access and try again.');
       } else {
         alert('Unable to access microphone. Please check permissions and try again.');
@@ -183,12 +146,8 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
 
   const resumeRecording = () => {
     if (recognitionRef.current && isListening && isPaused) {
-      try {
-        recognitionRef.current.start();
-        setIsPaused(false);
-      } catch (e) {
-        console.log('Recognition already started');
-      }
+      try { recognitionRef.current.start(); } catch {}
+      setIsPaused(false);
     }
   };
 
@@ -199,11 +158,9 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       setIsListening(false);
       setIsPaused(false);
     }
-
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
     }
@@ -215,11 +172,7 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
       audioRef.current = new Audio(audioUrl);
       audioRef.current.play();
       setIsPlaying(true);
-
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
+      audioRef.current.onended = () => { setIsPlaying(false); URL.revokeObjectURL(audioUrl); };
     }
   };
 
@@ -233,16 +186,19 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
 
   const resetRecording = () => {
     setTranscript('');
+    accumulatedFinalRef.current = '';
     setAudioBlob(null);
     setRecordingTime(0);
     onRecordingChange(false);
     setIsListening(false);
+    setIsPaused(false);
     setIsPlaying(false);
   };
 
   const submitAnswer = () => {
-    if (transcript.trim()) {
-      onAnswerSubmit(transcript.trim());
+    const finalAnswer = transcript.trim() || accumulatedFinalRef.current.trim();
+    if (finalAnswer) {
+      onAnswerSubmit(finalAnswer);
       resetRecording();
     }
   };
@@ -278,7 +234,6 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
           >
             {isListening ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
           </Button>
-          
           {isListening && (
             <Button
               variant={isPaused ? "default" : "outline"}
@@ -319,11 +274,7 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
         {/* Audio Playback Controls */}
         {audioBlob && !isListening && (
           <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={isPlaying ? stopPlaying : playRecording}
-            >
+            <Button variant="outline" size="sm" onClick={isPlaying ? stopPlaying : playRecording}>
               {isPlaying ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {isPlaying ? 'Stop' : 'Play'}
             </Button>
@@ -343,51 +294,19 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={resetRecording}
-            className="flex-1"
-          >
+          <Button variant="outline" size="sm" onClick={resetRecording} className="flex-1">
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={submitAnswer}
-            disabled={!transcript.trim()}
-            className="flex-1"
-          >
+          <Button variant="default" size="sm" onClick={submitAnswer} disabled={!(transcript.trim() || accumulatedFinalRef.current.trim())} className="flex-1">
             <CheckCircle className="h-4 w-4 mr-2" />
             Submit Answer
           </Button>
         </div>
-        
-        {/* Test Speech Recognition */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (recognitionRef.current) {
-              try {
-                recognitionRef.current.start();
-                console.log('Manual test: Speech recognition started');
-              } catch (e) {
-                console.log('Manual test: Recognition already started');
-              }
-            }
-          }}
-          className="w-full"
-        >
-          🧪 Test Speech Recognition
-        </Button>
 
         {/* Debug Info */}
         <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-          <p className="text-xs text-gray-600 mb-2">
-            <strong>Debug Info:</strong>
-          </p>
+          <p className="text-xs text-gray-600 mb-2"><strong>Debug Info:</strong></p>
           <div className="text-xs text-gray-600 space-y-1">
             <div>Speech Recognition: {('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) ? '✅ Supported' : '❌ Not Supported'}</div>
             <div>Microphone: {isListening ? '✅ Active' : '❌ Inactive'}</div>
@@ -399,10 +318,7 @@ const SpeechRecorder = ({ onAnswerSubmit, question, isRecording, onRecordingChan
         {/* Browser Support Warning */}
         {!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              ⚠️ Speech recognition is not supported in this browser. 
-              Please use Chrome, Edge, or Safari for voice input.
-            </p>
+            <p className="text-sm text-yellow-800">⚠️ Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari for voice input.</p>
           </div>
         )}
       </CardContent>

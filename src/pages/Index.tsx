@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import FeatureShowcase from '@/components/FeatureShowcase';
 import InterviewSetup from '@/components/InterviewSetup';
 import InterviewSession from '@/components/InterviewSession';
 import InterviewResults from '@/components/InterviewResults';
-import { saveInterviewSession } from '@/lib/sessions';
+import { saveInterviewSession, listInterviewSessions } from '@/lib/sessions';
 import SessionHistory from '@/components/SessionHistory';
 import { fetchAiQuestions } from '@/lib/ai';
+import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 
 
 type AppSection = 'home' | 'setup' | 'interview' | 'results' | 'practice' | 'analytics' | 'feedback';
@@ -21,13 +22,25 @@ interface InterviewConfig {
   questions?: string[];
 }
 
-interface InterviewResults {
+interface InterviewResultsType {
   score: number;
   feedback: Array<{
     question: string;
     answer: string;
     score: number;
     feedback: string;
+    analysis?: {
+      communication: string;
+      structure: string;
+      content: string;
+      suggestions: string[];
+      metrics: {
+        wordCount: number;
+        speakingTime: number;
+        fillerWords: number;
+        confidence: number;
+      };
+    };
   }>;
   duration: number;
   strengths: string[];
@@ -37,7 +50,8 @@ interface InterviewResults {
 const Index = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>('home');
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
-  const [interviewResults, setInterviewResults] = useState<InterviewResults | null>(null);
+  const [interviewResults, setInterviewResults] = useState<InterviewResultsType | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
   const handleStartInterview = () => {
     setCurrentSection('setup');
@@ -55,7 +69,7 @@ const Index = () => {
     setCurrentSection('interview');
   };
 
-  const handleEndInterview = async (results: InterviewResults) => {
+  const handleEndInterview = async (results: InterviewResultsType) => {
     setInterviewResults(results);
     setCurrentSection('results');
     try {
@@ -86,6 +100,39 @@ const Index = () => {
       setCurrentSection(section as AppSection);
     }
   };
+
+  // Auto-load latest session for analytics if none in memory
+  useEffect(() => {
+    const loadLatest = async () => {
+      if (currentSection !== 'analytics' || interviewResults) return;
+      try {
+        setLoadingAnalytics(true);
+        const sessions = await listInterviewSessions();
+        if (Array.isArray(sessions) && sessions.length > 0) {
+          const s = sessions[0]; // assuming sorted desc by backend
+          const transformed: InterviewResultsType = {
+            score: s.score ?? 0,
+            duration: s.duration ?? 0,
+            feedback: (s.feedback ?? []).map((f: any) => ({
+              question: f.question ?? '',
+              answer: f.answer ?? '',
+              score: f.score ?? 0,
+              feedback: f.feedback ?? '',
+              analysis: f.analysis ?? undefined,
+            })),
+            strengths: s.strengths ?? [],
+            improvements: s.improvements ?? [],
+          };
+          setInterviewResults(transformed);
+        }
+      } catch (e) {
+        console.error('Failed to load analytics', e);
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    };
+    loadLatest();
+  }, [currentSection, interviewResults]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -142,12 +189,24 @@ const Index = () => {
         )}
 
         {currentSection === 'analytics' && (
-          <div className="container mx-auto px-4 py-24 text-center">
-            <h1 className="text-3xl font-bold mb-4">Performance Analytics</h1>
-            <p className="text-muted-foreground mb-8">Track your progress over time</p>
-            <div className="text-sm text-muted-foreground">
-              Analytics dashboard coming soon...
-            </div>
+          <div className="container mx-auto px-4 py-12">
+            <h1 className="text-3xl font-bold mb-6">Performance Analytics</h1>
+            {loadingAnalytics ? (
+              <div className="text-sm text-muted-foreground">Loading analytics...</div>
+            ) : interviewResults ? (
+              <AnalyticsDashboard 
+                overallScore={interviewResults.score}
+                feedback={interviewResults.feedback.map(f => ({
+                  question: f.question,
+                  score: f.score,
+                  analysis: f.analysis
+                }))}
+                strengths={interviewResults.strengths}
+                improvements={interviewResults.improvements}
+              />
+            ) : (
+              <div className="text-sm text-muted-foreground">No recent interview results. Complete an interview to see analytics.</div>
+            )}
           </div>
         )}
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import SpeechRecorder from './SpeechRecorder';
 import AnswerAnalyzer from './AnswerAnalyzer';
+import CodeEditor from './CodeEditor';
 
 interface InterviewSessionProps {
   config: any;
@@ -271,6 +272,14 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
               isRecording={isRecording}
               onRecordingChange={setIsRecording}
             />
+
+            {/* Code Editor for technical interviews */}
+            {config?.type === 'technical' && (
+              <CodeEditor 
+                prompt={questions[currentQuestion]?.question || ''}
+                onSubmitCode={() => { /* stub - can send to backend judge later */ }}
+              />
+            )}
 
             {/* Answer Analysis */}
             {showAnalysis && currentAnswer && (
